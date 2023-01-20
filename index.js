@@ -373,6 +373,8 @@ module.exports = {
         // find routes in web-api service
         if (node.settings && node.settings.routes) {
 
+          const openApiConfig = node.settings.routes.find(routeItem => Object.values(routeItem.aliases).includes('openapi.generateDocs'))
+
           if (this.settings.collectOnlyFromWebServices && this.settings.collectOnlyFromWebServices.length > 0 && !this.settings.collectOnlyFromWebServices.includes(node.name)) {
             continue;
           }
@@ -380,7 +382,7 @@ module.exports = {
           // iterate each route
           for (const route of node.settings.routes) {
             // map standart aliases
-            this.buildActionRouteStructFromAliases(route, routes);
+            this.buildActionRouteStructFromAliases(route, routes, new Set(openApiConfig.hidden));
           }
 
           let service = node.name;
@@ -439,6 +441,8 @@ module.exports = {
         const aliasInfo = route.aliases[alias];
         let actionType = aliasInfo.type;
 
+        if (this.settings.openapi.hiddenAliases.includes(alias) || (aliasInfo.openapi && aliasInfo.openapi.hidden)) continue
+
         let action = "";
         if (aliasInfo.action) {
           action = aliasInfo.action;
@@ -468,6 +472,7 @@ module.exports = {
           alias,
           autoAliases: route.autoAliases,
           openapi: aliasInfo.openapi || null,
+          autoResponses: aliasInfo.openapi && "autoResponses" in aliasInfo.openapi ? aliasInfo.openapi.autoResponses : true
         });
       }
 
@@ -508,10 +513,10 @@ module.exports = {
             tags: [service],
             // rawParams: params,
             parameters: [...queryParams],
-            responses: {
+            responses: path.autoResponses ? {
               // attach common responses
               ...this.settings.commonPathItemObjectResponses,
-            },
+            } : {},
           };
 
           if (method === "get" || method === "delete") {
